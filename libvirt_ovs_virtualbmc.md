@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This configuration allows you to setup a virtual environment that mimics a group of bare metal servers. The main purpose I have been doing this was for setting up an OpenStack 13 lab living all on one large baremetal server, on CentOS 7.9.
+This configuration allows you to setup a virtual environment that mimics a group of bare metal servers. The main purpose I have been doing this was for setting up an OpenStack 13 lab living all on one large baremetal server, on CentOS 7.9. Most this information was provided to me Nick Satsia, and I am documenting it via this markdown document.
 
 
 ## Packages to Install

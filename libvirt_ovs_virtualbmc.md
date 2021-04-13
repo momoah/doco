@@ -1,9 +1,10 @@
-# Configuring Libvirt with OVS (Open Virtual Switch) and VirtualBMC (Bare Metal Control)
+# Configuring Libvirt with OVS (Open Virtual Switch) and VirtualBMC (Bare Metal Control) 
 
 ## Introduction
 
 This configuration allows you to setup a virtual environment that mimics a group of bare metal servers. The main purpose I have been doing this was for setting up an OpenStack 13 lab living all on one large baremetal server, on CentOS 7.9. Most this information was provided to me Nick Satsia, and I am documenting it via this markdown document.
 
+# CentOS 7 Steps
 
 ## Packages to Install
 
@@ -294,5 +295,108 @@ chassis power Commands: status, on, off, cycle, reset, diag, soft
 Chassis Power Control: Down/Off
 ```
 
+
+# CentOS 8 Steps
+I've tested these steps on CentOS 8 and found things behave slightly differently. The steps below are what worked for me.
+
+
+## Packages
+
+```
+yum install -y centos-release-openstack-victoria
+ 
+yum install -y python3-openstackclient
+
+yum install -y wget libguestfs-tools libguestfs-xfs  net-tools bind-utils lshw libvirt qemu-kvm virt-manager virt-install xauth virt-viewer tcpdump  numactl lm_sensors firefox openvswitch tmux
+```
+
+## Config
+
+```
+modprobe --first-time bonding
+modprobe --first-time 8021q
+systemctl enable libvirtd
+systemctl start libvirtd
+
+cat << EOF > /etc/modprobe.d/kvm_intel.conf
+options kvm-intel nested=1
+options kvm-intel enable_shadow_vmcs=1
+options kvm-intel enable_apicv=1
+options kvm-intel ept=1
+EOF
+
+cat << EOF > /etc/sysctl.d/98-rp-filter.conf
+net.ipv4.conf.default.rp_filter = 0
+net.ipv4.conf.all.rp_filter = 0
+EOF
+
+systemctl start ksm
+systemctl enable ksm
+systemctl start ksmtuned
+systemctl enable ksmtuned
+
+systemctl enable openvswitch
+systemctl start openvswitch
+```
+
+The network scripts below are customised to my environment, please adjust accordingly:
+
+```
+cat << EOF >  /etc/sysconfig/network-scripts/ifcfg-br-ex
+DEVICE=br-ex
+ONBOOT=yes
+DEVICETYPE=ovs
+TYPE=OVSBridge
+BOOTPROTO=static
+OVSBOOTPROTO="none"
+OVSDHCPINTERFACES=eno1
+IPADDR=192.168.1.220
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+DNS1=192.168.1.150
+NM_CONTROLLED=no
+EOF
+
+cat << EOF >  /etc/sysconfig/network-scripts/ifcfg-eno1
+DEVICE=eno1
+ONBOOT=yes
+HOTPLUG=no
+NM_CONTROLLED=no
+DEVICETYPE=ovs
+TYPE=OVSPort
+OVS_BRIDGE=br-ex
+BOOTPROTO=none
+NM_CONTROLLED=no
+EOF
+
+systemctl enable network
+systemctl start network
+
+virsh net-list
+virsh net-destroy default
+virsh net-undefine default
+
+
+
+cat << EOF > kvm-ovs.xml
+<network>
+  <name>ovs-bridge</name>
+  <forward mode='bridge'/>
+  <bridge name='br-ex'/>
+  <virtualport type='openvswitch'/>
+</network>
+EOF
+
+virsh net-define  kvm-ovs.xml
+virsh net-start ovs-bridge
+virsh net-autostart  ovs-bridge
+virsh net-list --all
+```
+
+## References:
+
+1. https://computingforgeeks.com/how-to-install-open-vswitch-on-centos-rhel/
+
+2. https://computingforgeeks.com/configuring-open-vswitch-on-centos-rhel-fedora/
 
  
